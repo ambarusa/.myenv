@@ -1,3 +1,4 @@
 ### Usage:
-git clone --recurse-submodules https://github.com/ambarusa/.myenv.git \
-sudo ./.myenv/configure.sh
+1. git clone --recurse-submodules https://github.com/ambarusa/.myenv.git \
+2. sudo chmod u+x configure.sh \
+3. sudo ./.myenv/configure.sh

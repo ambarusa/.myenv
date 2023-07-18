@@ -14,37 +14,42 @@ function apt_install_silent {
 
 # Function to create symbolic links for directories and hard links for files
 function create_links {
-  source_path="$1"
-  dest_dir="$2"
-  link_name="$3" # Optional
+    source_path="$1"
+    dest_dir="$2"
+    link_name="${3:-$(basename "$source_path")}" # Use default name if link_name is not provided
 
-  # Check if the source exists
-  if [ -e "$source_path" ]; then
+    # Check if the source exists
+    if [ ! -e "$source_path" ]; then
+        echo "Source path '$source_path' does not exist."
+        return 1
+    fi
+
     # Get the base name of the source path
     source_name="$(basename "$source_path")"
-    
+
     # Create symbolic link for a directory, overwrite it if it exists
     if [ -d "$source_path" ]; then
-      ln -sf "$source_path" "$dest_dir/${link_name:-$source_name}" 2>/dev/null
-      if [ $? -eq 0 ]; then
-        echo "Symbolic link created for $source_name in $dest_dir"
-      else
-        echo "Failed to create symbolic link for $source_name in $dest_dir"
-      fi
+        # Remove the old symlink (if exists) before creating a new one for a directory
+        if [ -L "$dest_dir/$link_name" ]; then
+            rm "$dest_dir/$link_name"
+        fi
+        su - "$SUDO_USER" -c "ln -s "$source_path" "$dest_dir/$link_name" 2>/dev/null"
+        if [ $? -eq 0 ]; then
+            echo "Symbolic link created for $source_name in $dest_dir"
+        else
+            echo "Failed to create symbolic link for $source_name in $dest_dir"
+        fi
     # Create hard link for a file, overwrite it if it exists
     elif [ -f "$source_path" ]; then
-      ln -f "$source_path" "$dest_dir/${link_name:-$source_name}" 2>/dev/null
-      if [ $? -eq 0 ]; then
-        echo "Hard link created for $source_name in $dest_dir"
-      else
-        echo "Failed to create hard link for $source_name in $dest_dir"
-      fi
+        su - "$SUDO_USER" -c "ln -f "$source_path" "$dest_dir/$link_name" 2>/dev/null"
+        if [ $? -eq 0 ]; then
+            echo "Hard link created for $source_name in $dest_dir"
+        else
+            echo "Failed to create hard link for $source_name in $dest_dir"
+        fi
     else
-      echo "Source path '$source_path' is neither a file nor a directory."
+        echo "Source path '$source_path' is neither a file nor a directory."
     fi
-  else
-    echo "Source path '$source_path' does not exist."
-  fi
 }
 
 # Install zsh using apt
@@ -63,7 +68,7 @@ if [ $? -eq 0 ]; then
         if [ $? -eq 0 ]; then
             echo "Zsh has been installed successfully!"
             chsh -s $(which zsh)
-            
+
             # Check if Oh My Zsh setup was successful
             if [ $? -eq 0 ]; then
                 echo "Oh My Zsh has been set up successfully!"
@@ -80,7 +85,6 @@ else
     echo "Failed to update package lists. Please check the error messages above."
 fi
 
-
 # Get the absolute path of the script
 script_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 
@@ -95,7 +99,7 @@ else
     echo "Error: .zshrc file not found in the current directory."
 fi
 
-# Create the links in the home directory
+# Create the links in the home directory using the user who called sudo
 create_links $script_dir/ohmyzsh $target_dir ".oh-my-zsh"
 create_links $script_dir/powerlevel10k $target_dir/.oh-my-zsh/custom/themes
 create_links $script_dir/zsh-autosuggestions $target_dir/.oh-my-zsh/custom/plugins
