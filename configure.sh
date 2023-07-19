@@ -55,9 +55,10 @@ function create_links {
 # Install zsh using apt
 apt_update=$(apt-get -qq update)
 if [ $? -eq 0 ]; then
-    apt_install_silent batcat
+    apt_install_silent bat
     apt_install_silent neofetch
-    apt_install_silent lsd
+#    apt_install_silent lsd - lsd doesn't seem to be available on apt, using snap until then
+    snap install lsd
 
     if [ $? -eq 0 ]; then
         echo "batcat, neofetch, and lsd have been installed successfully!"
