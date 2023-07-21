@@ -10,6 +10,12 @@ fi
 function apt_install_silent {
     echo "Install is in progress for package: $1"
     apt-get -qq install -y "$1" >/dev/null 2>&1
+
+    # Check if the installation was successful, exit if not
+    if [ $? -ne 0 ]; then
+        echo "Failed to install $1. Please check the error messages above."
+        exit 1
+    fi
 }
 
 # Function to create symbolic links for directories and hard links for files
@@ -52,36 +58,28 @@ function create_links {
     fi
 }
 
-# Install zsh using apt
+# Installing the packages. apt_install_silent function exits from the script if there is a failure
+# No need for extra verification
 apt_update=$(apt-get -qq update)
 if [ $? -eq 0 ]; then
     apt_install_silent bat
     apt_install_silent neofetch
-#    apt_install_silent lsd - lsd doesn't seem to be available on apt, using snap until then
-    snap install lsd
-
+    #    apt_install_silent lsd - lsd doesn't seem to be available in apt
+    lsd_link="https://github.com/Peltoche/lsd/releases/download/0.23.1/lsd-musl_0.23.1_amd64.deb"
+    wget -qO tmp "$lsd_link"
     if [ $? -eq 0 ]; then
-        echo "batcat, neofetch, and lsd have been installed successfully!"
-
-        # Install Zsh
-        apt_install_silent zsh
-
-        if [ $? -eq 0 ]; then
-            echo "Zsh has been installed successfully!"
-            chsh -s $(which zsh)
-
-            # Check if Oh My Zsh setup was successful
-            if [ $? -eq 0 ]; then
-                echo "Oh My Zsh has been set up successfully!"
-            else
-                echo "Oh My Zsh setup failed. Please check the error messages above."
-            fi
-        else
-            echo "Failed to install Zsh. Please check the error messages above."
-        fi
+        dpkg -i tmp > /dev/null
+        rm tmp
     else
-        echo "Failed to install batcat, neofetch, and lsd. Please check the error messages above."
+        echo "Lsd release was not found!"
     fi
+
+    echo "batcat, neofetch, and lsd have been installed successfully!"
+
+    # Install Zsh
+    apt_install_silent zsh
+    echo "Zsh has been installed successfully!"
+    chsh -s $(which zsh)
 else
     echo "Failed to update package lists. Please check the error messages above."
 fi
@@ -108,4 +106,3 @@ create_links $script_dir/zsh-history-substring-search $target_dir/.oh-my-zsh/cus
 create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/plugins
 create_links $script_dir/.p10k.zsh $target_dir
 create_links $script_dir/.zshrc $target_dir
-
