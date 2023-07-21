@@ -82,14 +82,18 @@ plugins=(
   git
   history
   dirhistory
+  tmux
   zsh-autosuggestions
   zsh-history-substring-search
   zsh-syntax-highlighting
 )
 
+ZSH_TMUX_AUTOSTART=true
+ZSH_TMUX_DEFAULT_SESSION_NAME="main"
+
 source $ZSH/oh-my-zsh.sh
 
-clear && neofetch
+neofetch
 
 # User configuration
 
