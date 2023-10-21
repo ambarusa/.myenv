@@ -106,4 +106,4 @@ create_links $script_dir/zsh-history-substring-search $target_dir/.oh-my-zsh/cus
 create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/plugins
 create_links $script_dir/.p10k.zsh $target_dir
 create_links $script_dir/.zshrc $target_dir
-#create_links $script_dir/.tmux.conf $target_dir
+create_links $script_dir/.tmux.conf $target_dir
