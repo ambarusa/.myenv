@@ -97,5 +97,3 @@ create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/p
 create_links $script_dir/.p10k.zsh $target_dir
 create_links $script_dir/.zshrc $target_dir
 create_links $script_dir/.tmux.conf $target_dir
-
-exec zsh
