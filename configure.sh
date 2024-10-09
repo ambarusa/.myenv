@@ -1,20 +1,66 @@
 #!/bin/bash
+# Get the original user who called the script
+original_user=$(who -m | awk '{print $1}')
 
 # Check if the script is being run with sudo privileges
-if [ "$EUID" -ne 0 ]; then
+if [ "$EUID" -eq 0 ]; then
+    echo "Script was invoked with sudo by user: $original_user"
+else
     echo "Please run this script with sudo or as the root user."
     exit 1
 fi
 
+# Get the absolute path of the script
+script_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+
+# Navigate one level up from the script directory
+target_dir=$(eval echo "~$original_user")
+
 # Function to suppress output and print a custom message
 function apt_install_silent {
+    # Check if the package is already installed
+    if dpkg -l | grep -q "^ii  $1 "; then
+        echo "$1 is already installed."
+        return 0
+    fi
+
     echo "Install is in progress for package: $1"
     apt-get -qq install -y "$1" >/dev/null 2>&1
 
     # Check if the installation was successful, exit if not
     if [ $? -ne 0 ]; then
-        echo "Failed to install $1. Please check the error messages above."
+        echo "Failed to install $1. Please check your system logs for more details!"
         exit 1
+    else
+        echo "$1 has been installed successfully!"
+    fi
+}
+
+function install_oh_my_zsh() {
+    # Check if ~/.oh-my-zsh folder exists
+    if [ -d "$target_dir/.oh-my-zsh" ]; then
+        echo "Warning! $target_dir/.oh-my-zsh direcotry already exists, and it might contain important information to be backed up!"
+        read -p "Can it be deleted? (y/n): " confirmation
+        if [[ "$confirmation" != "y" ]]; then
+            echo "Back up $target_dir/.oh-my-zsh, and come back later! Installation aborted. Exiting"
+            exit 1
+        else
+            rm -rf "$target_dir/.oh-my-zsh"
+            echo "$target_dir/.oh-my-zsh has been removed."
+        fi
+    fi
+
+    # Proceed with installation
+    echo "Install is in progress for Oh-My-Zsh"
+    # Run the command as $original_user to obtain the correct path
+    su -l "$original_user" -c 'sh -c "$(curl -fsSL https://install.ohmyz.sh/)" "" --unattended >/dev/null 2>&1'
+
+    # Check if the installation was successful
+    if [ $? -ne 0 ]; then
+        echo "Failed to install Oh-My-Zsh. Please check your system logs for more details!"
+        exit 1
+    else
+        echo "Oh-My-Zsh has been installed successfully."
     fi
 }
 
@@ -65,31 +111,16 @@ if [ $? -eq 0 ]; then
     apt_install_silent bat
     apt_install_silent neofetch
     apt_install_silent lsd
-
-    echo "batcat, neofetch, and lsd have been installed successfully!"
-
-    # Install Zsh
     apt_install_silent zsh
-    echo "Zsh has been installed successfully!"
-    chsh -s $(which zsh)
+    install_oh_my_zsh
+
+    # Change the default shell to Zsh for the original user
+    chsh -s "$(which zsh)" "$original_user"
 else
     echo "Failed to update package lists. Please check the error messages above."
 fi
 
-# Get the absolute path of the script
-script_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
-
-# Navigate one level up from the script directory
-target_dir="$(realpath "$script_dir/..")"
-
-# Check if the .zshrc file exists in the target directory
-if [ -f "$target_dir/.zshrc" ]; then
-    # Backing up original .zshrc file
-    cp $target_dir/.zshrc $target_dir/.zshrc.orig
-fi
-
 # Create the links in the home directory using the user who called sudo
-create_links $script_dir/ohmyzsh $target_dir ".oh-my-zsh"
 create_links $script_dir/powerlevel10k $target_dir/.oh-my-zsh/custom/themes
 create_links $script_dir/zsh-autosuggestions $target_dir/.oh-my-zsh/custom/plugins
 create_links $script_dir/zsh-history-substring-search $target_dir/.oh-my-zsh/custom/plugins
@@ -97,3 +128,17 @@ create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/p
 create_links $script_dir/.p10k.zsh $target_dir
 create_links $script_dir/.zshrc $target_dir
 create_links $script_dir/.tmux.conf $target_dir
+
+# Installation was successful
+echo "Installation was successful. Do you want to switch to Zsh now? (y/n)"
+read -r switch_to_zsh
+
+if [[ "$switch_to_zsh" == "y" || "$switch_to_zsh" == "Y" ]]; then
+    echo "Switching to Zsh..."
+    # Switch to original_user and start Zsh without blocking the script
+    su -l "$original_user" -c "zsh &"
+    exit 0
+else
+    echo "You can switch to Zsh later by typing 'zsh'. Exiting now."
+    exit 0
+fi
