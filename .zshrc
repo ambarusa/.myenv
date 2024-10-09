@@ -126,5 +126,6 @@ source $ZSH/oh-my-zsh.sh
 
 alias ls="lsd"
 alias l="lsd -al"
-alias cat="batcat"
+alias cat="batcat --style=plain"
+alias cat="batcat --paging=never"
 alias mc="SHELL=/bin/bash mc"
