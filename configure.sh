@@ -64,15 +64,7 @@ apt_update=$(apt-get -qq update)
 if [ $? -eq 0 ]; then
     apt_install_silent bat
     apt_install_silent neofetch
-    #    apt_install_silent lsd - lsd doesn't seem to be available in apt
-    lsd_link="https://github.com/Peltoche/lsd/releases/download/0.23.1/lsd-musl_0.23.1_amd64.deb"
-    wget -qO tmp "$lsd_link"
-    if [ $? -eq 0 ]; then
-        dpkg -i tmp > /dev/null
-        rm tmp
-    else
-        echo "Lsd release was not found!"
-    fi
+    apt_install_silent lsd
 
     echo "batcat, neofetch, and lsd have been installed successfully!"
 
@@ -94,8 +86,6 @@ target_dir="$(realpath "$script_dir/..")"
 if [ -f "$target_dir/.zshrc" ]; then
     # Backing up original .zshrc file
     cp $target_dir/.zshrc $target_dir/.zshrc.orig
-else
-    echo "Error: .zshrc file not found in the current directory."
 fi
 
 # Create the links in the home directory using the user who called sudo
@@ -107,3 +97,5 @@ create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/p
 create_links $script_dir/.p10k.zsh $target_dir
 create_links $script_dir/.zshrc $target_dir
 create_links $script_dir/.tmux.conf $target_dir
+
+exec zsh
