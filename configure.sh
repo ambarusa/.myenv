@@ -112,6 +112,7 @@ if [ $? -eq 0 ]; then
     apt_install_silent neofetch
     apt_install_silent lsd
     apt_install_silent zsh
+    apt_install_silent tmux
     install_oh_my_zsh
 
     # Change the default shell to Zsh for the original user
