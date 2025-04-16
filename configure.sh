@@ -18,22 +18,30 @@ target_dir=$(eval echo "~$original_user")
 
 # Function to suppress output and print a custom message
 function apt_install_silent {
+    local pkg="$1"
     # Check if the package is already installed
-    if dpkg -l | grep -q "^ii  $1 "; then
-        echo "$1 is already installed."
+    if command -v "$pkg" >/dev/null 2>&1 || \
+       dpkg -l | grep -q "^ii\s\+$pkg\s" || \
+       snap list | grep -q "^$pkg\s"; then
+        echo "$pkg is already available."
         return 0
     fi
 
-    echo "Install is in progress for package: $1"
-    apt-get -qq install -y "$1" >/dev/null 2>&1
-
-    # Check if the installation was successful, exit if not
-    if [ $? -ne 0 ]; then
-        echo "Failed to install $1. Please check your system logs for more details!"
-        exit 1
-    else
-        echo "$1 has been installed successfully!"
+    echo "Install is in progress for package: $pkg"
+    # Try APT first
+    if apt-get -qq install -y "$pkg" >/dev/null 2>&1; then
+        echo "$pkg installed via APT."
+        return 0
     fi
+
+    # Fallback to Snap
+    if snap install "$pkg" >/dev/null 2>&1; then
+        echo "$pkg installed via Snap."
+        return 0
+    fi
+
+    echo "Failed to install $pkg via APT or Snap."
+    return 1
 }
 
 function install_oh_my_zsh() {
