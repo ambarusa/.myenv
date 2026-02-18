@@ -1,153 +1,166 @@
 #!/bin/bash
-# Get the original user who called the script
-original_user=$(who -m | awk '{print $1}')
+set -e
 
-# Check if the script is being run with sudo privileges
-if [ "$EUID" -eq 0 ]; then
-    echo "Script was invoked with sudo by user: $original_user"
-else
-    echo "Please run this script with sudo or as the root user."
+# ============================================================================
+# ZSH Configuration Setup Script
+# Installs dependencies, sets up Oh-My-Zsh, and configures plugins & themes
+# ============================================================================
+
+# Verify running with sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run with sudo."
     exit 1
 fi
 
-# Get the absolute path of the script
-script_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+# Get the original user who called sudo
+ORIGINAL_USER="${SUDO_USER:-$(who -m | awk '{print $1}')}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_DIR=$(eval echo "~$ORIGINAL_USER")
 
-# Navigate one level up from the script directory
-target_dir=$(eval echo "~$original_user")
+echo "Setting up zsh environment for user: $ORIGINAL_USER"
+echo "Script directory: $SCRIPT_DIR"
+echo "Target directory: $TARGET_DIR"
+echo
 
-# Function to suppress output and print a custom message
-function apt_install_silent {
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+# Install a package via apt or snap
+install_package() {
     local pkg="$1"
-    # Check if the package is already installed
-    if command -v "$pkg" >/dev/null 2>&1 || \
-       dpkg -l | grep -q "^ii\s\+$pkg\s" || \
-       snap list | grep -q "^$pkg\s"; then
-        echo "$pkg is already available."
+    
+    # Check if already installed
+    if command -v "$pkg" >/dev/null 2>&1; then
+        echo "✓ $pkg is already installed."
         return 0
     fi
-
-    echo "Install is in progress for package: $pkg"
-    # Try APT first
-    if apt-get -qq install -y "$pkg" >/dev/null 2>&1; then
-        echo "$pkg installed via APT."
+    
+    echo "→ Installing $pkg..."
+    if apt-get install -qq -y "$pkg" 2>/dev/null; then
+        echo "✓ $pkg installed via apt."
         return 0
     fi
-
-    # Fallback to Snap
-    if snap install "$pkg" >/dev/null 2>&1; then
-        echo "$pkg installed via Snap."
+    
+    if snap install "$pkg" 2>/dev/null; then
+        echo "✓ $pkg installed via snap."
         return 0
     fi
-
-    echo "Failed to install $pkg via APT or Snap."
+    
+    echo "✗ Failed to install $pkg."
     return 1
 }
 
-function install_oh_my_zsh() {
-    # Check if ~/.oh-my-zsh folder exists
-    if [ -d "$target_dir/.oh-my-zsh" ]; then
-        echo "Warning! $target_dir/.oh-my-zsh direcotry already exists, and it might contain important information to be backed up!"
-        read -p "Can it be deleted? (y/n): " confirmation
-        if [[ "$confirmation" != "y" ]]; then
-            echo "Back up $target_dir/.oh-my-zsh, and come back later! Installation aborted. Exiting"
-            exit 1
-        else
-            rm -rf "$target_dir/.oh-my-zsh"
-            echo "$target_dir/.oh-my-zsh has been removed."
+# Install Oh-My-Zsh
+install_ohmyzsh() {
+    local ohmyzsh_dir="$TARGET_DIR/.oh-my-zsh"
+    
+    if [ -d "$ohmyzsh_dir" ]; then
+        echo "Warning: $ohmyzsh_dir already exists."
+        read -p "Remove it to continue? (y/n): " confirm
+        if [[ "$confirm" != "y" ]]; then
+            echo "Aborted. Please backup $ohmyzsh_dir and try again."
+            return 1
         fi
+        rm -rf "$ohmyzsh_dir"
     fi
-
-    # Proceed with installation
-    echo "Install is in progress for Oh-My-Zsh"
-    # Run the command as $original_user to obtain the correct path
-    su -l "$original_user" -c 'sh -c "$(curl -fsSL https://install.ohmyz.sh/)" "" --unattended >/dev/null 2>&1'
-
-    # Check if the installation was successful
-    if [ $? -ne 0 ]; then
-        echo "Failed to install Oh-My-Zsh. Please check your system logs for more details!"
-        exit 1
+    
+    echo "→ Installing Oh-My-Zsh..."
+    su -l "$ORIGINAL_USER" -c 'sh -c "$(curl -fsSL https://install.ohmyz.sh/)" "" --unattended' >/dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        echo "✓ Oh-My-Zsh installed successfully."
+        return 0
     else
-        echo "Oh-My-Zsh has been installed successfully."
-    fi
-}
-
-# Function to create symbolic links for directories and hard links for files
-function create_links {
-    source_path="$1"
-    dest_dir="$2"
-    link_name="${3:-$(basename "$source_path")}" # Use default name if link_name is not provided
-
-    # Check if the source exists
-    if [ ! -e "$source_path" ]; then
-        echo "Source path '$source_path' does not exist."
+        echo "✗ Failed to install Oh-My-Zsh."
         return 1
     fi
+}
 
-    # Get the base name of the source path
-    source_name="$(basename "$source_path")"
-
-    # Create symbolic link for a directory, overwrite it if it exists
-    if [ -d "$source_path" ]; then
-        # Remove the old symlink (if exists) before creating a new one for a directory
-        if [ -L "$dest_dir/$link_name" ]; then
-            rm "$dest_dir/$link_name"
-        fi
-        su - "$SUDO_USER" -c "ln -s "$source_path" "$dest_dir/$link_name" 2>/dev/null"
-        if [ $? -eq 0 ]; then
-            echo "Symbolic link created for $source_name in $dest_dir"
-        else
-            echo "Failed to create symbolic link for $source_name in $dest_dir"
-        fi
-    # Create hard link for a file, overwrite it if it exists
-    elif [ -f "$source_path" ]; then
-        su - "$SUDO_USER" -c "ln -f "$source_path" "$dest_dir/$link_name" 2>/dev/null"
-        if [ $? -eq 0 ]; then
-            echo "Hard link created for $source_name in $dest_dir"
-        else
-            echo "Failed to create hard link for $source_name in $dest_dir"
-        fi
+# Create symbolic links for directories and files
+link_config() {
+    local source="$1"
+    local dest_dir="$2"
+    local link_name="${3:-$(basename "$source")}"
+    local dest="$dest_dir/$link_name"
+    
+    if [ ! -e "$source" ]; then
+        echo "✗ Source not found: $source"
+        return 1
+    fi
+    
+    # Remove existing link/file
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        rm -rf "$dest"
+    fi
+    
+    # Create parent directory if needed
+    mkdir -p "$dest_dir"
+    
+    # Create symlink as the original user
+    if su - "$ORIGINAL_USER" -c "ln -s '$source' '$dest'" 2>/dev/null; then
+        echo "✓ Linked $(basename "$source") to $dest_dir"
+        return 0
     else
-        echo "Source path '$source_path' is neither a file nor a directory."
+        echo "✗ Failed to link $(basename "$source")"
+        return 1
     fi
 }
 
-# Installing the packages. apt_install_silent function exits from the script if there is a failure
-# No need for extra verification
-apt_update=$(apt-get -qq update)
-if [ $? -eq 0 ]; then
-    apt_install_silent bat
-    apt_install_silent neofetch
-    apt_install_silent lsd
-    apt_install_silent zsh
-    apt_install_silent tmux
-    install_oh_my_zsh
+# ============================================================================
+# Main Execution
+# ============================================================================
 
-    # Change the default shell to Zsh for the original user
-    chsh -s "$(which zsh)" "$original_user"
-else
-    echo "Failed to update package lists. Please check the error messages above."
+echo "Updating package lists..."
+if ! apt-get update -qq; then
+    echo "✗ Failed to update package lists."
+    exit 1
 fi
 
-# Create the links in the home directory using the user who called sudo
-create_links $script_dir/powerlevel10k $target_dir/.oh-my-zsh/custom/themes
-create_links $script_dir/zsh-autosuggestions $target_dir/.oh-my-zsh/custom/plugins
-create_links $script_dir/zsh-history-substring-search $target_dir/.oh-my-zsh/custom/plugins
-create_links $script_dir/zsh-syntax-highlighting $target_dir/.oh-my-zsh/custom/plugins
-create_links $script_dir/.p10k.zsh $target_dir
-create_links $script_dir/.zshrc $target_dir
-create_links $script_dir/.tmux.conf $target_dir
+# Install dependencies
+echo
+echo "Installing dependencies..."
+install_package zsh || exit 1
+install_package tmux || exit 1
+install_package bat || exit 1
+install_package lsd || exit 1
+install_package neofetch || exit 1
 
-# Installation was successful
-echo "Installation was successful. Do you want to switch to Zsh now? (y/n)"
-read -r switch_to_zsh
+# Install and configure Oh-My-Zsh
+echo
+install_ohmyzsh || exit 1
 
-if [[ "$switch_to_zsh" == "y" || "$switch_to_zsh" == "Y" ]]; then
-    echo "Switching to Zsh..."
-    # Switch to original_user and start Zsh without blocking the script
-    su -l "$original_user" -c "zsh &"
-    exit 0
+# Setup themes and plugins
+echo
+echo "Configuring themes and plugins..."
+link_config "$SCRIPT_DIR/powerlevel10k" "$TARGET_DIR/.oh-my-zsh/custom/themes" || exit 1
+link_config "$SCRIPT_DIR/zsh-autosuggestions" "$TARGET_DIR/.oh-my-zsh/custom/plugins" || exit 1
+link_config "$SCRIPT_DIR/zsh-history-substring-search" "$TARGET_DIR/.oh-my-zsh/custom/plugins" || exit 1
+link_config "$SCRIPT_DIR/zsh-syntax-highlighting" "$TARGET_DIR/.oh-my-zsh/custom/plugins" || exit 1
+
+# Setup configuration files
+echo
+echo "Installing configuration files..."
+link_config "$SCRIPT_DIR/.p10k.zsh" "$TARGET_DIR" || exit 1
+link_config "$SCRIPT_DIR/.zshrc" "$TARGET_DIR" || exit 1
+link_config "$SCRIPT_DIR/.tmux.conf" "$TARGET_DIR" || exit 1
+
+# Change default shell to zsh
+echo
+echo "→ Setting zsh as default shell..."
+chsh -s "$(which zsh)" "$ORIGINAL_USER" && echo "✓ Default shell changed to zsh" || echo "✗ Failed to change default shell"
+
+# Success message
+echo
+echo "✓ Setup completed successfully!"
+echo
+read -p "Switch to zsh now? (y/n): " switch_shell
+
+if [[ "$switch_shell" == "y" || "$switch_shell" == "Y" ]]; then
+    su -l "$ORIGINAL_USER" -c "zsh"
 else
-    echo "You can switch to Zsh later by typing 'zsh'. Exiting now."
-    exit 0
+    echo "You can switch to zsh later by running: zsh"
 fi
+
+exit 0
+
