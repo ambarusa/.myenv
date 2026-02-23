@@ -1,0 +1,28 @@
+#!/bin/bash
+# Example Borg Backup Configuration
+
+########################
+# REQUIRED SETTINGS    #
+########################
+
+# Borg repository location
+BORG_REPO="/mnt/backup-storage"
+
+# Array of paths to back up
+BACKUP_PATHS=(
+    "/home/username/.config"
+)
+
+# Retention policy
+KEEP_DAILY=7
+KEEP_WEEKLY=4
+KEEP_MONTHLY=12
+
+########################
+# OPTIONAL SETTINGS    #
+########################
+
+# Docker containers to safely stop before backup
+# This ensures databases like MariaDB flush all write operations
+# Leave empty or comment out if you don't use Docker
+DOCKER_STOP_CONTAINERS=()

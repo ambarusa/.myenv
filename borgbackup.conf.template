@@ -1,0 +1,61 @@
+#!/bin/bash
+# Borg Backup Configuration Template
+# Copy this file and customize it for your system
+# Usage: borgbackup.sh /path/to/your/config.conf
+
+########################
+# REQUIRED SETTINGS    #
+########################
+
+# Borg repository location
+# This is where your backups will be stored
+BORG_REPO="/mnt/backup-storage"
+
+# Array of paths to back up
+# Add multiple paths as needed
+BACKUP_PATHS=(
+    "/home/username/.docker"
+    "/home/username/.config"
+    "/home/username/Documents"
+)
+
+# Retention policy - how many backups to keep
+# Set values to 0 to disable keeping archives of that period
+KEEP_DAILY=7
+KEEP_WEEKLY=4
+KEEP_MONTHLY=12
+
+########################
+# OPTIONAL SETTINGS    #
+########################
+
+# List of Docker containers to stop before backup and restart after
+# Only containers in this list will be stopped. If list is empty or undefined,
+# no Docker container management will be performed.
+# Useful for databases (MariaDB, PostgreSQL, MongoDB) to ensure safe shutdown
+# and flush all write operations before backup.
+# Leave empty to treat all paths as regular folders:
+DOCKER_STOP_CONTAINERS=()
+
+# Example: Stop these containers
+# DOCKER_STOP_CONTAINERS=("mariadb" "postgres" "mongodb")
+
+# Borg backup options (optional - can be customized)
+# These are passed to the borg create command
+# BORG_CREATE_OPTS="--compression lz4"
+
+# Borg prune options (optional)
+# BORG_PRUNE_OPTS="--progress"
+
+########################
+# ENVIRONMENT SETUP    #
+########################
+
+# Uncomment if you need to set Borg passphrase
+# export BORG_PASSPHRASE="your-passphrase-here"
+
+# Uncomment if your Borg repository requires SSH key
+# export BORG_RSH='ssh -i /path/to/keyfile'
+
+# Uncomment to set log file
+# BACKUP_LOG="/var/log/borgbackup.log"
