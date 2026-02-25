@@ -96,10 +96,17 @@ if [ "$DRY_RUN" = "true" ]; then
     BORG_OPTS="--dry-run $BORG_OPTS"
 fi
 
+# Build exclude args from EXCLUDE_PATHS (optional)
+EXCLUDE_ARGS=()
+for path in "${EXCLUDE_PATHS[@]:-}"; do
+    EXCLUDE_ARGS+=(--exclude "$path")
+done
+
 borg create \
     $BORG_OPTS \
+    "${EXCLUDE_ARGS[@]}" \
     "$BORG_REPO::borgbackup-$timestamp" \
-    ${BACKUP_PATHS[@]}
+    "${BACKUP_PATHS[@]}"
 
 echo "== Backup completed =="
 

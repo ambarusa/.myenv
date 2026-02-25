@@ -48,6 +48,35 @@ DOCKER_STOP_CONTAINERS=()
 # BORG_PRUNE_OPTS="--progress"
 
 ########################
+# ADDITIONAL OPTIONS   #
+########################
+
+# Paths or glob patterns to exclude from the archive (optional)
+# Use quoted entries for spaces or globs. Examples:
+# EXCLUDE_PATHS=("/home/username/Downloads" "*.cache/")
+EXCLUDE_PATHS=()
+
+# Optional: override the temporary state file the wrapper uses to record
+# which containers it stopped. If unset, the wrapper creates a timestamped
+# file in /tmp automatically.
+# STATE_FILE="/tmp/borg-running-containers.txt"
+
+# If you prefer the wrapper to stop all running containers before backup,
+# set this to true and leave DOCKER_STOP_CONTAINERS empty. Use with care.
+# STOP_ALL_CONTAINERS=false
+
+# Notes and best-practices:
+# - Call the wrapper with `--dry-run` to preview actions without making
+#   changes (useful to verify lists and borg options):
+#     borgbackup.sh --dry-run /path/to/your.conf
+# - Ensure variables that reference $HOME or ~ are quoted in arrays to
+#   avoid word-splitting: BACKUP_PATHS=("$HOME/.docker" "$HOME/Documents")
+# - If your Borg installation requires SSH keys or a passphrase, export
+#   `BORG_RSH` and/or `BORG_PASSPHRASE` in this file (or better, a protected
+#   environment such as a systemd unit file with `Environment=`).
+
+
+########################
 # ENVIRONMENT SETUP    #
 ########################
 

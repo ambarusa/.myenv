@@ -26,3 +26,31 @@ KEEP_MONTHLY=12
 # This ensures databases like MariaDB flush all write operations
 # Leave empty or comment out if you don't use Docker
 DOCKER_STOP_CONTAINERS=()
+
+# Paths or glob patterns to exclude from backups (optional)
+# Example: EXCLUDE_PATHS=("/home/username/Downloads" "*.cache/")
+EXCLUDE_PATHS=()
+
+# Optional: temporary file to record stopped containers (if you want to
+# inspect or override the default path). If left unset, the script will
+# create a timestamped file in /tmp by default.
+# STATE_FILE="/tmp/borg-running-containers-custom.txt"
+
+# Optional extra borg create options (documented here; not required)
+# BORG_CREATE_OPTS="--compression lz4"
+
+# Optional extra borg prune options
+# BORG_PRUNE_OPTS="--progress"
+
+# Optional: set Borg environment variables
+# export BORG_PASSPHRASE="your-passphrase-here"
+# export BORG_RSH='ssh -i /path/to/keyfile'
+
+# Logging (optional)
+# BACKUP_LOG="/var/log/borgbackup.log"
+
+# Notes:
+# - Use --dry-run when invoking the wrapper to show what would run without
+#   making changes: `borgbackup.sh --dry-run /path/to/this.conf`
+# - Paths in BACKUP_PATHS and EXCLUDE_PATHS are expanded by the shell; use
+#   quoted entries if they contain spaces or glob characters.
